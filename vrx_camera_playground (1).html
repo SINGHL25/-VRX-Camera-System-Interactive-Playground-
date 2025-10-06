@@ -1,0 +1,886 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VRX Camera System Playground</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #0a0e27 0%, #1a1f3a 100%);
+            color: #e0e0e0;
+            overflow-x: hidden;
+        }
+
+        .container {
+            display: grid;
+            grid-template-columns: 300px 1fr 350px;
+            grid-template-rows: 60px 1fr;
+            height: 100vh;
+            gap: 0;
+        }
+
+        .header {
+            grid-column: 1 / -1;
+            background: linear-gradient(90deg, #1e2847 0%, #2d3561 100%);
+            padding: 0 30px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+            position: relative;
+            z-index: 100;
+        }
+
+        .logo {
+            font-size: 24px;
+            font-weight: 700;
+            color: #00d4ff;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .logo-icon {
+            width: 40px;
+            height: 40px;
+            background: linear-gradient(135deg, #00d4ff, #0099cc);
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            font-size: 18px;
+        }
+
+        .status-bar {
+            display: flex;
+            gap: 20px;
+            align-items: center;
+        }
+
+        .status-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 16px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 6px;
+            font-size: 12px;
+        }
+
+        .status-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            animation: pulse 2s infinite;
+        }
+
+        .status-dot.online {
+            background: #00ff88;
+            box-shadow: 0 0 10px #00ff88;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        .sidebar {
+            background: #1a1f3a;
+            padding: 20px;
+            overflow-y: auto;
+            border-right: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .sidebar h3 {
+            color: #00d4ff;
+            margin-bottom: 15px;
+            font-size: 14px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .device-list {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .device-item {
+            background: rgba(255, 255, 255, 0.05);
+            padding: 15px;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s;
+            border: 2px solid transparent;
+        }
+
+        .device-item:hover {
+            background: rgba(0, 212, 255, 0.1);
+            border-color: #00d4ff;
+            transform: translateX(5px);
+        }
+
+        .device-item.active {
+            background: rgba(0, 212, 255, 0.2);
+            border-color: #00d4ff;
+        }
+
+        .device-name {
+            font-weight: 600;
+            margin-bottom: 5px;
+        }
+
+        .device-info {
+            font-size: 11px;
+            color: #888;
+        }
+
+        .main-content {
+            display: grid;
+            grid-template-rows: 1fr 250px;
+            gap: 20px;
+            padding: 20px;
+            overflow: hidden;
+        }
+
+        .viewport {
+            background: #0f1425;
+            border-radius: 12px;
+            position: relative;
+            overflow: hidden;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+        }
+
+        .viewport-controls {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            display: flex;
+            gap: 10px;
+            z-index: 10;
+        }
+
+        .view-btn {
+            padding: 10px 20px;
+            background: rgba(0, 212, 255, 0.2);
+            border: 1px solid #00d4ff;
+            color: #00d4ff;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-size: 12px;
+            font-weight: 600;
+        }
+
+        .view-btn:hover {
+            background: rgba(0, 212, 255, 0.4);
+        }
+
+        .view-btn.active {
+            background: #00d4ff;
+            color: #0a0e27;
+        }
+
+        #canvas3d {
+            width: 100%;
+            height: 100%;
+        }
+
+        .camera-view {
+            width: 100%;
+            height: 100%;
+            position: relative;
+            background: #000;
+        }
+
+        .camera-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            pointer-events: none;
+        }
+
+        .trigger-line {
+            position: absolute;
+            left: 0;
+            right: 0;
+            height: 2px;
+            background: #ff0066;
+            box-shadow: 0 0 10px #ff0066;
+            top: 60%;
+        }
+
+        .roi-box {
+            position: absolute;
+            border: 2px solid #00ff88;
+            box-shadow: 0 0 10px rgba(0, 255, 136, 0.5);
+        }
+
+        .license-plate {
+            position: absolute;
+            background: rgba(255, 255, 255, 0.9);
+            color: #000;
+            padding: 8px 16px;
+            border-radius: 4px;
+            font-weight: 700;
+            font-family: monospace;
+            border: 3px solid #333;
+            animation: plateDetect 0.5s;
+        }
+
+        @keyframes plateDetect {
+            0% { transform: scale(0.8); opacity: 0; }
+            100% { transform: scale(1); opacity: 1; }
+        }
+
+        .timeline {
+            background: #1a1f3a;
+            border-radius: 12px;
+            padding: 20px;
+            overflow: hidden;
+        }
+
+        .timeline-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+
+        .timeline-title {
+            color: #00d4ff;
+            font-weight: 600;
+        }
+
+        .timeline-stats {
+            display: flex;
+            gap: 20px;
+            font-size: 12px;
+        }
+
+        .stat-item {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .stat-value {
+            color: #00ff88;
+            font-weight: 700;
+        }
+
+        .events-container {
+            max-height: 150px;
+            overflow-y: auto;
+        }
+
+        .event-item {
+            background: rgba(255, 255, 255, 0.03);
+            padding: 10px;
+            border-radius: 6px;
+            margin-bottom: 8px;
+            border-left: 3px solid #00d4ff;
+            font-size: 12px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .event-time {
+            color: #888;
+            font-size: 11px;
+        }
+
+        .right-panel {
+            background: #1a1f3a;
+            padding: 20px;
+            overflow-y: auto;
+            border-left: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .panel-section {
+            margin-bottom: 25px;
+        }
+
+        .panel-section h3 {
+            color: #00d4ff;
+            margin-bottom: 15px;
+            font-size: 13px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .config-item {
+            margin-bottom: 15px;
+        }
+
+        .config-label {
+            display: block;
+            margin-bottom: 5px;
+            font-size: 11px;
+            color: #888;
+            text-transform: uppercase;
+        }
+
+        .config-input {
+            width: 100%;
+            padding: 10px;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            color: #e0e0e0;
+            border-radius: 6px;
+            font-size: 13px;
+        }
+
+        .config-input:focus {
+            outline: none;
+            border-color: #00d4ff;
+            background: rgba(0, 212, 255, 0.05);
+        }
+
+        select.config-input {
+            cursor: pointer;
+        }
+
+        .btn {
+            width: 100%;
+            padding: 12px;
+            background: linear-gradient(135deg, #00d4ff, #0099cc);
+            border: none;
+            color: #fff;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.3s;
+            margin-top: 10px;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 20px rgba(0, 212, 255, 0.4);
+        }
+
+        .metrics {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+        }
+
+        .metric-card {
+            background: rgba(255, 255, 255, 0.03);
+            padding: 15px;
+            border-radius: 8px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .metric-label {
+            font-size: 10px;
+            color: #888;
+            text-transform: uppercase;
+            margin-bottom: 5px;
+        }
+
+        .metric-value {
+            font-size: 24px;
+            font-weight: 700;
+            color: #00d4ff;
+        }
+
+        .metric-unit {
+            font-size: 12px;
+            color: #888;
+            margin-left: 5px;
+        }
+
+        .alert {
+            background: rgba(255, 100, 100, 0.1);
+            border: 1px solid #ff6464;
+            padding: 12px;
+            border-radius: 6px;
+            font-size: 12px;
+            margin-top: 15px;
+        }
+
+        .alert.warning {
+            background: rgba(255, 200, 0, 0.1);
+            border-color: #ffc800;
+        }
+
+        .alert.success {
+            background: rgba(0, 255, 136, 0.1);
+            border-color: #00ff88;
+        }
+
+        /* Scrollbar */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: rgba(255, 255, 255, 0.05);
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: rgba(0, 212, 255, 0.3);
+            border-radius: 4px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: rgba(0, 212, 255, 0.5);
+        }
+
+        .road-simulation {
+            width: 100%;
+            height: 100%;
+            position: relative;
+            background: linear-gradient(to bottom, #1a1f3a 0%, #2d3561 50%, #3a4050 100%);
+        }
+
+        .road {
+            position: absolute;
+            bottom: 0;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 400px;
+            height: 100%;
+            background: #333;
+            perspective: 1000px;
+        }
+
+        .lane-marker {
+            position: absolute;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 4px;
+            height: 40px;
+            background: #fff;
+            animation: moveMarker 2s linear infinite;
+        }
+
+        @keyframes moveMarker {
+            0% { top: -40px; opacity: 0; }
+            10% { opacity: 1; }
+            90% { opacity: 1; }
+            100% { top: 100%; opacity: 0; }
+        }
+
+        .vehicle {
+            position: absolute;
+            width: 80px;
+            height: 140px;
+            left: 50%;
+            transform: translateX(-50%);
+            transition: all 0.3s;
+        }
+
+        .vehicle-body {
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(135deg, #3498db, #2980b9);
+            border-radius: 10px 10px 5px 5px;
+            position: relative;
+            box-shadow: 0 5px 20px rgba(0, 0, 0, 0.5);
+        }
+
+        .vehicle-window {
+            position: absolute;
+            top: 20px;
+            left: 10px;
+            right: 10px;
+            height: 40px;
+            background: rgba(100, 150, 200, 0.5);
+            border-radius: 5px 5px 0 0;
+        }
+
+        .license-plate-sim {
+            position: absolute;
+            bottom: 10px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #fff;
+            color: #000;
+            padding: 3px 8px;
+            border-radius: 2px;
+            font-size: 10px;
+            font-weight: 700;
+            font-family: monospace;
+            border: 1px solid #333;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div class="logo">
+                <div class="logo-icon">VRX</div>
+                <div>
+                    <div>VRX Camera System</div>
+                    <div style="font-size: 11px; color: #888; font-weight: 400;">Interactive Playground v2.38</div>
+                </div>
+            </div>
+            <div class="status-bar">
+                <div class="status-item">
+                    <div class="status-dot online"></div>
+                    <span>System Online</span>
+                </div>
+                <div class="status-item">
+                    <span id="currentTime">--:--:--</span>
+                </div>
+                <div class="status-item">
+                    <span id="frameRate">25 FPS</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="sidebar">
+            <h3>VRX Devices</h3>
+            <div class="device-list" id="deviceList"></div>
+
+            <h3 style="margin-top: 30px;">Quick Actions</h3>
+            <button class="btn" onclick="triggerCapture()">Manual Trigger</button>
+            <button class="btn" onclick="simulateTraffic()">Simulate Traffic</button>
+            <button class="btn" onclick="rebootDevice()">Reboot Device</button>
+        </div>
+
+        <div class="main-content">
+            <div class="viewport">
+                <div class="viewport-controls">
+                    <button class="view-btn active" onclick="switchView('camera')">Camera View</button>
+                    <button class="view-btn" onclick="switchView('3d')">3D Scene</button>
+                    <button class="view-btn" onclick="switchView('road')">Road Sim</button>
+                </div>
+                <div id="viewportContent"></div>
+            </div>
+
+            <div class="timeline">
+                <div class="timeline-header">
+                    <div class="timeline-title">System Events & Captures</div>
+                    <div class="timeline-stats">
+                        <div class="stat-item">
+                            <span>Captures:</span>
+                            <span class="stat-value" id="captureCount">0</span>
+                        </div>
+                        <div class="stat-item">
+                            <span>Success:</span>
+                            <span class="stat-value" id="successRate">100%</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="events-container" id="eventsContainer"></div>
+            </div>
+        </div>
+
+        <div class="right-panel">
+            <div class="panel-section">
+                <h3>Configuration</h3>
+                <div class="config-item">
+                    <label class="config-label">Station Name</label>
+                    <input type="text" class="config-input" value="VRX-Station-01" id="stationName">
+                </div>
+                <div class="config-item">
+                    <label class="config-label">IP Address</label>
+                    <input type="text" class="config-input" value="192.168.0.20" id="ipAddress">
+                </div>
+                <div class="config-item">
+                    <label class="config-label">Camera Type</label>
+                    <select class="config-input" id="cameraType">
+                        <option>VRX-3400-LPI</option>
+                        <option>VRX-3500-LPI</option>
+                        <option>VRX-3400-OVI</option>
+                    </select>
+                </div>
+                <div class="config-item">
+                    <label class="config-label">Application Type</label>
+                    <select class="config-input" id="appType">
+                        <option>FC (Front Camera)</option>
+                        <option>RC (Rear Camera)</option>
+                        <option>OC (Overview Camera)</option>
+                    </select>
+                </div>
+                <div class="config-item">
+                    <label class="config-label">Focal Length (mm)</label>
+                    <input type="range" class="config-input" min="8" max="50" value="25" id="focalLength" oninput="updateFocalLength(this.value)">
+                    <span id="focalValue" style="color: #00d4ff; font-size: 12px;">25mm</span>
+                </div>
+                <button class="btn" onclick="applyConfig()">Apply Configuration</button>
+            </div>
+
+            <div class="panel-section">
+                <h3>Live Metrics</h3>
+                <div class="metrics">
+                    <div class="metric-card">
+                        <div class="metric-label">CPU Load</div>
+                        <div class="metric-value" id="cpuLoad">45<span class="metric-unit">%</span></div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-label">RAM Usage</div>
+                        <div class="metric-value" id="ramUsage">2.1<span class="metric-unit">GB</span></div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-label">Temperature</div>
+                        <div class="metric-value" id="temperature">52<span class="metric-unit">°C</span></div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-label">SSD Health</div>
+                        <div class="metric-value" id="ssdHealth">94<span class="metric-unit">%</span></div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="panel-section">
+                <h3>System Status</h3>
+                <div class="alert success" id="systemStatus">
+                    ✓ All systems operational
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // State management
+        let currentView = 'camera';
+        let captureCount = 0;
+        let devices = [
+            { id: 1, name: 'VRX-FC-01', ip: '192.168.0.21', type: 'VRX-3500-LPI', status: 'online' },
+            { id: 2, name: 'VRX-RC-01', ip: '192.168.0.22', type: 'VRX-3400-LPI', status: 'online' },
+            { id: 3, name: 'VRX-OC-01', ip: '192.168.0.23', type: 'VRX-3400-OVI', status: 'online' }
+        ];
+        let selectedDevice = devices[0];
+        let trafficInterval = null;
+
+        // Initialize
+        function init() {
+            renderDevices();
+            switchView('camera');
+            startMetricsUpdate();
+            updateTime();
+            setInterval(updateTime, 1000);
+        }
+
+        function updateTime() {
+            const now = new Date();
+            document.getElementById('currentTime').textContent = now.toLocaleTimeString();
+        }
+
+        function renderDevices() {
+            const list = document.getElementById('deviceList');
+            list.innerHTML = devices.map(device => `
+                <div class="device-item ${device.id === selectedDevice.id ? 'active' : ''}" onclick="selectDevice(${device.id})">
+                    <div class="device-name">${device.name}</div>
+                    <div class="device-info">${device.ip} • ${device.type}</div>
+                </div>
+            `).join('');
+        }
+
+        function selectDevice(id) {
+            selectedDevice = devices.find(d => d.id === id);
+            renderDevices();
+            addEvent(`Switched to ${selectedDevice.name}`, 'info');
+        }
+
+        function switchView(view) {
+            currentView = view;
+            document.querySelectorAll('.view-btn').forEach(btn => btn.classList.remove('active'));
+            event.target.classList.add('active');
+            
+            const viewport = document.getElementById('viewportContent');
+            
+            if (view === 'camera') {
+                viewport.innerHTML = `
+                    <div class="camera-view">
+                        <canvas id="cameraCanvas" width="1200" height="700"></canvas>
+                        <div class="camera-overlay">
+                            <div class="trigger-line"></div>
+                        </div>
+                    </div>
+                `;
+                renderCameraView();
+            } else if (view === '3d') {
+                viewport.innerHTML = '<canvas id="canvas3d"></canvas>';
+                render3DScene();
+            } else if (view === 'road') {
+                viewport.innerHTML = `<div class="road-simulation" id="roadSim"></div>`;
+                renderRoadSimulation();
+            }
+        }
+
+        function renderCameraView() {
+            const canvas = document.getElementById('cameraCanvas');
+            const ctx = canvas.getContext('2d');
+            
+            // Background
+            const gradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
+            gradient.addColorStop(0, '#1a2332');
+            gradient.addColorStop(1, '#2d3848');
+            ctx.fillStyle = gradient;
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            // Road
+            ctx.fillStyle = '#3a3a3a';
+            ctx.fillRect(300, 0, 600, canvas.height);
+            
+            // Lane markers
+            ctx.strokeStyle = '#fff';
+            ctx.lineWidth = 3;
+            ctx.setLineDash([30, 20]);
+            ctx.beginPath();
+            ctx.moveTo(600, 0);
+            ctx.lineTo(600, canvas.height);
+            ctx.stroke();
+            ctx.setLineDash([]);
+            
+            // Grid overlay
+            ctx.strokeStyle = 'rgba(0, 212, 255, 0.2)';
+            ctx.lineWidth = 1;
+            for (let i = 0; i < canvas.width; i += 50) {
+                ctx.beginPath();
+                ctx.moveTo(i, 0);
+                ctx.lineTo(i, canvas.height);
+                ctx.stroke();
+            }
+            for (let i = 0; i < canvas.height; i += 50) {
+                ctx.beginPath();
+                ctx.moveTo(0, i);
+                ctx.lineTo(canvas.width, i);
+                ctx.stroke();
+            }
+            
+            // Info text
+            ctx.fillStyle = '#00d4ff';
+            ctx.font = '14px monospace';
+            ctx.fillText(`Camera: ${selectedDevice.name} | Resolution: 2048x1536 | FPS: 25`, 20, 30);
+            ctx.fillText('Trigger Zone: 420px | Focus: Auto | Exposure: 1/1000s', 20, 50);
+        }
+
+        function render3DScene() {
+            const canvas = document.getElementById('canvas3d');
+            const ctx = canvas.getContext('2d');
+            canvas.width = canvas.offsetWidth;
+            canvas.height = canvas.offsetHeight;
+            
+            // Simple 3D representation
+            const centerX = canvas.width / 2;
+            const centerY = canvas.height / 2;
+            
+            // Background
+            ctx.fillStyle = '#0f1425';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            // Road perspective
+            ctx.fillStyle = '#2a2a2a';
+            ctx.beginPath();
+            ctx.moveTo(centerX - 200, canvas.height);
+            ctx.lineTo(centerX - 50, centerY);
+            ctx.lineTo(centerX + 50, centerY);
+            ctx.lineTo(centerX + 200, canvas.height);
+            ctx.closePath();
+            ctx.fill();
+            
+            // Camera position
+            ctx.fillStyle = '#00d4ff';
+            ctx.beginPath();
+            ctx.arc(centerX, centerY - 100, 15, 0, Math.PI * 2);
+            ctx.fill();
+            
+            // Camera field of view
+            ctx.strokeStyle = 'rgba(0, 212, 255, 0.3)';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(centerX, centerY - 100);
+            ctx.lineTo(centerX - 150, canvas.height);
+            ctx.moveTo(centerX, centerY - 100);
+            ctx.lineTo(centerX + 150, canvas.height);
+            ctx.stroke();
+            
+            // Labels
+            ctx.fillStyle = '#e0e0e0';
+            ctx.font = '12px sans-serif';
+            ctx.fillText('VRX Camera', centerX - 40, centerY - 120);
+            ctx.fillText('Field of View: 45°', centerX - 50, centerY - 80);
+        }
+
+        function renderRoadSimulation() {
+            const container = document.getElementById('roadSim');
+            container.innerHTML = `
+                <div class="road">
+                    ${Array(10).fill(0).map((_, i) => `
+                        <div class="lane-marker" style="animation-delay: ${i * 0.2}s; top: ${i * 10}%;"></div>
+                    `).join('')}
+                </div>
+            `;
+        }
+
+        function triggerCapture() {
+            captureCount++;
+            document.getElementById('captureCount').textContent = captureCount;
+            
+            const plateNumber = generatePlateNumber();
+            addEvent(`Capture triggered: ${plateNumber} detected`, 'success');
+            
+            // Show license plate on camera view
+            if (currentView === 'camera') {
+                const overlay = document.querySelector('.camera-overlay');
+                if (overlay) {
+                    const plate = document.createElement('div');
+                    plate.className = 'license-plate';
+                    plate.textContent = plateNumber;
+                    plate.style.left = Math.random() * 60 + 20 + '%';
+                    plate.style.top = Math.random() * 40 + 40 + '%';
+                    overlay.appendChild(plate);
+                    
+                    setTimeout(() => plate.remove(), 2000);
+                }
+            }
+            
+            // Update metrics
+            updateMetrics();
+        }
+
+        function generatePlateNumber() {
+            const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+            const numbers = '0123456789';
+            return Array(3).fill(0).map(() => letters[Math.floor(Math.random() * letters.length)]).join('') +
+                   Array(4).fill(0).map(() => numbers[Math.floor(Math.random() * numbers.length)]).join('');
+        }
+
+        function simulateTraffic() {
+            if (trafficInterval) {
+                clearInterval(trafficInterval);
+                trafficInterval = null;
+                addEvent('Traffic simulation stopped', 'info');
+                return;
+            }
+            
+            addEvent('Traffic simulation started', 'info');
+            trafficInterval = setInterval(() => {
+                triggerCapture();
+            }, 3000);
+        }
+
+        function rebootDevice() {
+            addEvent(`Rebooting ${selectedDevice.name}...`, 'warning');
+            document.getElementById('systemStatus').className = 'alert warning';
+            document.getElementById('systemStatus').textContent = '⚠ Device rebooting...';
+            
+            setTimeout(() => {
+                addEvent(`${selectedDevice.name} online`, 'success');
+                document.getElementById('systemStatus').className = 'alert success';
+                document.getElementById('systemStatus').textContent = '✓ All systems operational';
+            }, 3000);
+        }
+
+        function addEvent(message, type) {
+            const container = document.getElementById('eventsContainer');
+            const event = document.createElement('div');
+            event.className = 'event-item';
+            event
